@@ -418,6 +418,11 @@ var playerSpire = {
         this.updateSpirestoneText();
         return reward;
     },
+    giveSpirestones: function(count){
+        this.spirestones += count;
+        if (this.tutorialStep >= 4) this.addRow();
+        this.updateSpirestoneText();
+    },
     updateSpirestoneText: function() {
         var elem = document.getElementById('spirestoneBox');
         if (elem) elem.innerHTML = this.getSpirestoneHtml();
@@ -939,6 +944,7 @@ var playerSpire = {
         
         if (enemy.toxicity > 0 && playerSpireTraps.Poison.level >= 6){
             var toxReward = enemy.toxicity * 0.1;
+            toxReward = calcHeirloomBonus("Core", "runestones", toxReward);
             this.rewardRunestones(toxReward);
             if (!catchingUp && this.settings.fctRs)
                 TDFloatingText.spawnFloatingText(location, playerSpireTraps.Poison.color, -0.05, 3.5, "+ " + prettify(toxReward) + " Rs");
@@ -968,6 +974,7 @@ var playerSpire = {
     killedEnemy: function(enemy, location, rsBonus, catchingUp){
         this.killedSinceLeak++;
         var reward = this.getRsReward(enemy, rsBonus);
+        reward = calcHeirloomBonus("Core", "runestones", reward);
         this.rewardRunestones(reward);
         this.layout[location].occupiedBy = {dead: true};
         this.currentEnemies--;
@@ -1491,12 +1498,13 @@ var playerSpireTraps = {
             else
                 dmg = dmgs[this.level - 1];
             var row = playerSpire.getRowFromCell(cell);
-            if (playerSpire.strengthLocations.indexOf(row) != -1) dmg *= 2;
+            if (playerSpire.strengthLocations.indexOf(row) != -1) dmg *= calcHeirloomBonus("Core", "strengthEffect", 2);
             if (playerSpireTraps.Frost.level >= 3 && enemy && enemy.slowedFor && enemy.slowMod == 1){
                 dmg *= 1.25;
             }
             if (effect > 0) dmg *= effect;
-            dmg *= playerSpireTraps.Lightning.getColBonus(cell);
+            dmg *= calcHeirloomBonus("Core", "lightningTrap", playerSpireTraps.Lightning.getColBonus(cell));
+            dmg = calcHeirloomBonus("Core", "fireTrap", dmg);
             return dmg;
         },
     },
@@ -1660,7 +1668,8 @@ var playerSpireTraps = {
                     }
                 }
             }
-            dmg *= playerSpireTraps.Lightning.getColBonus(cell);
+            dmg *= calcHeirloomBonus("Core", "lightningTrap", playerSpireTraps.Lightning.getColBonus(cell));
+            dmg = calcHeirloomBonus("Core", "poisonTrap", dmg);
             return dmg;
         },
         extraEffect: function (enemy, cell){
@@ -1723,7 +1732,7 @@ var playerSpireTraps = {
         get description(){
             var shockTurns = this.shockTurns();
             var text = "Deals " + prettify(this.totalDamage()) + " damage when stepped on, and afflicts the target with " + shockTurns + " stack" + needAnS(shockTurns) + " of Shocked. 1 stack of Shocked is consumed each time an enemy steps on a Trap or Tower, causing that Bad Guy to take " + this.shockedDamage() + "x damage and " + this.shockedEffect() + "x effect from the Trap or Tower that consumed the stack of Shocked. Shocked can boost the damage but not the effect of other Lightning Traps."
-            if (this.level >= 4) text += "<br/><br/>Each Lightning Trap increases the damage and effect of Fire and Poison Traps in its column by 10%, stacking additively.";
+            if (this.level >= 4) text += "<br/><br/>Each Lightning Trap increases the damage and effect of Fire and Poison Traps in its column by " + prettify(calcHeirloomBonus("Core", "lightningTrap", 10)) + "%, stacking additively.";
             text += "<br/><br/>(Hotkey 4)";
             return text;
         },
@@ -1752,6 +1761,7 @@ var playerSpireTraps = {
             else
                 dmg = dmgs[this.level - 1];
             if (effect) dmg *= effect;
+            dmg = calcHeirloomBonus("Core", "lightningTrap", dmg);
             return dmg;
         },
         extraEffect: function (enemy){
@@ -1816,7 +1826,7 @@ var playerSpireTraps = {
         level: 1,
         owned: 0,
         get description(){
-            return "Increases the damage of all Fire Traps on the same Floor as a Strength Tower by 100%, and when stepped on deals damage equal to the combined damage of all Fire Traps on its Floor (max of 1 Strength Tower per Floor). In addition, this Tower increases the attack of your Trimps in Maps and the World by " + prettify(this.getWorldBonus(true)) + "% (additive with other Strength Towers).<br/><br/>Your Strength Towers are currently granting a total of <b>" + prettify(this.getWorldBonus()) + "%</b> attack to your Trimps.<br/><br/>(Hotkey 5)";
+            return "Increases the damage of all Fire Traps on the same Floor as a Strength Tower by " + prettify(calcHeirloomBonus("Core", "strengthEffect", 100)) + "%, and when stepped on deals damage equal to the combined damage of all Fire Traps on its Floor (max of 1 Strength Tower per Floor). In addition, this Tower increases the attack of your Trimps in Maps and the World by " + prettify(this.getWorldBonus(true)) + "% (additive with other Strength Towers).<br/><br/>Your Strength Towers are currently granting a total of <b>" + prettify(this.getWorldBonus()) + "%</b> attack to your Trimps.<br/><br/>(Hotkey 5)";
         }
     },
     Condenser: {
@@ -1862,10 +1872,12 @@ var playerSpireTraps = {
         },
         noDirectDamage: true,
         get description(){
-            return "When stepped on, increases the target's Toxicity by 25%. In addition, each Condenser Tower increases all Helium found by " + prettify(this.getWorldBonus(true)) + "% (additive with other Condenser Towers).<br/><br/>Your Condenser Towers are currently granting a total of <b>" + prettify(this.getWorldBonus()) + "%</b> additional Helium from all sources.<br/><br/>(Hotkey 6)";
+            return "When stepped on, increases the target's Toxicity by  " + prettify(calcHeirloomBonus("Core", "condenserEffect", 25)) + "%. In addition, each Condenser Tower increases all Helium found by " + prettify(this.getWorldBonus(true)) + "% (additive with other Condenser Towers).<br/><br/>Your Condenser Towers are currently granting a total of <b>" + prettify(this.getWorldBonus()) + "%</b> additional Helium from all sources.<br/><br/>(Hotkey 6)";
         },
         extraEffect: function(enemy, cell){
             var effect = (enemy && enemy.shockTurns && enemy.shockTurns > 0) ? playerSpireTraps.Lightning.shockedEffect() : 1;
+            var baseEffect = 0.25;
+            baseEffect = calcHeirloomBonus("Core", "condenserEffect", baseEffect);
             var boost = (1 + (0.25 * effect));
             if (enemy.toxicity) enemy.toxicity *= boost;
         },

@@ -534,7 +534,13 @@ function tooltip(what, isItIn, event, textString, attachFunction, numCheck, rena
 		tooltipText = "";
 		if (!textString)
 		tooltipText = "<p>Click to toggle a challenge mode for your challenges!</p>";
-		tooltipText += "<p>In Challenge<sup>2</sup> mode, you can re-run some challenges in order to earn a permanent attack, health, and Helium bonus for your Trimps. MOST Challenge<sup>2</sup>s will grant <b>" + squaredConfig.rewardEach + "% attack and health and " + prettify(squaredConfig.rewardEach / 10) + "% increased Helium for every " + squaredConfig.rewardFreq + " Zones reached. Every " + squaredConfig.thresh + " Zones, the attack and health bonus will increase by an additional 1%, and the Helium bonus will increase by 0.1%</b>. This bonus is additive with all available Challenge<sup>2</sup>s, and your highest Zone reached for each challenge is saved and used.</p><p><b>No Challenge<sup>2</sup>s end at any specific Zone</b>, they can only be completed by using your portal or abandoning through the 'View Perks' menu. However, <b>no Helium can drop, and no bonus Helium will be earned during or after the run</b>. Void Maps will still drop heirlooms, and all other currency can still be earned.</p><p>You are currently gaining " + prettify(game.global.totalSquaredReward) + "% extra attack and health, and are gaining " + prettify(game.global.totalSquaredReward / 10) + "% extra Helium thanks to your Challenge<sup>2</sup> bonus.</p>";
+		var rewardEach = squaredConfig.rewardEach;
+		var rewardGrowth = squaredConfig.rewardGrowth;
+		if (game.talents.mesmer.purchased){
+			rewardEach *= 3;
+			rewardGrowth *= 3;
+		}
+		tooltipText += "<p>In Challenge<sup>2</sup> mode, you can re-run some challenges in order to earn a permanent attack, health, and Helium bonus for your Trimps. MOST Challenge<sup>2</sup>s will grant <b>" + rewardEach + "% attack and health and " + prettify(rewardEach / 10) + "% increased Helium for every " + squaredConfig.rewardFreq + " Zones reached. Every " + squaredConfig.thresh + " Zones, the attack and health bonus will increase by an additional " + rewardGrowth + "%, and the Helium bonus will increase by " + prettify(rewardGrowth / 10) + "%</b>. This bonus is additive with all available Challenge<sup>2</sup>s, and your highest Zone reached for each challenge is saved and used.</p><p><b>No Challenge<sup>2</sup>s end at any specific Zone</b>, they can only be completed by using your portal or abandoning through the 'View Perks' menu. However, <b>no Helium can drop, and no bonus Helium will be earned during or after the run</b>. Void Maps will still drop heirlooms, and all other currency can still be earned.</p><p>You are currently gaining " + prettify(game.global.totalSquaredReward) + "% extra attack and health, and are gaining " + prettify(game.global.totalSquaredReward / 10) + "% extra Helium thanks to your Challenge<sup>2</sup> bonus.</p>";
 		if (game.talents.headstart.purchased) tooltipText += "<p><b>Note that your Headstart mastery will be disabled during Challenge<sup>2</sup> runs.</b></p>";
 		costText = "";
 	}
@@ -666,26 +672,39 @@ function tooltip(what, isItIn, event, textString, attachFunction, numCheck, rena
 		else{
 			if (talent.purchased)
 				costText = "<span style='color: green'>Purchased</span>";
-			else if (getAllowedTalentTiers()[talent.tier - 1] < 1 && thisTierTalents < 6){
-				costText = "<span style='color: red'>Locked";
-				var lastTierTalents = countPurchasedTalents(talent.tier - 1);
-				if (lastTierTalents <= 1) costText += " (Buy " + ((lastTierTalents == 0) ? "2 Masteries" : "1 more Mastery") + " from Tier " + (talent.tier - 1) + " to unlock Tier " + talent.tier;
-				else costText += " (Buy 1 more Mastery from Tier " + (talent.tier - 1) + " to unlock the next from Tier " + talent.tier;
-				if (typeof talent.requires !== 'undefined' && !game.talents[talent.requires].purchased) {
-					costText += ". This Mastery also requires " + game.talents[talent.requires].name;
+			else{
+				var requiresText = false;
+				if (typeof talent.requires !== 'undefined'){
+					var requires;
+					if (Array.isArray(talent.requires)) requires = talent.requires;
+					else requires = [talent.requires];
+					var needed = [];
+					for (var x = 0; x < requires.length; x++){
+						if (!game.talents[requires[x]].purchased){ 
+							needed.push(game.talents[requires[x]].name);
+						}
+					}
+					if (needed.length) requiresText = formatListCommasAndStuff(needed);
 				}
-				costText += ")</span>"
-			}
-			else if (typeof talent.requires !== 'undefined' && !game.talents[talent.requires].purchased)
-				costText = "<span style='color: red'>Requires " + game.talents[talent.requires].name + "</span>";
-			else if (game.global.essence < nextTalCost && prettify(game.global.essence) != prettify(nextTalCost))
-				costText = "<span style='color: red'>" + prettify(nextTalCost) + " Dark Essence (Use Scrying Formation to earn more)</span>";
-			else {
-				costText = prettify(nextTalCost) + " Dark Essence";
-				if (canPurchaseRow(talent.tier)) {
-					costText += "<br/><b style='color: black; font-size: 0.8vw;'>You can afford to purchase this whole row! Hold Ctrl when clicking to buy this entire row and any uncompleted rows before it.</b>";
+				if (getAllowedTalentTiers()[talent.tier - 1] < 1 && thisTierTalents < 6){
+					costText = "<span style='color: red'>Locked";
+					var lastTierTalents = countPurchasedTalents(talent.tier - 1);
+					if (lastTierTalents <= 1) costText += " (Buy " + ((lastTierTalents == 0) ? "2 Masteries" : "1 more Mastery") + " from Tier " + (talent.tier - 1) + " to unlock Tier " + talent.tier;
+					else costText += " (Buy 1 more Mastery from Tier " + (talent.tier - 1) + " to unlock the next from Tier " + talent.tier;
+					if (requiresText) costText += ". This Mastery also requires " + requiresText;
+					costText += ")</span>"
 				}
+				else if (requiresText)
+					costText = "<span style='color: red'>Requires " + requiresText + "</span>";
+				else if (game.global.essence < nextTalCost && prettify(game.global.essence) != prettify(nextTalCost))
+					costText = "<span style='color: red'>" + prettify(nextTalCost) + " Dark Essence (Use Scrying Formation to earn more)</span>";
+				else {
+					costText = prettify(nextTalCost) + " Dark Essence";
+					if (canPurchaseRow(talent.tier)) {
+						costText += "<br/><b style='color: black; font-size: 0.8vw;'>You can afford to purchase this whole row! Hold Ctrl when clicking to buy this entire row and any uncompleted rows before it.</b>";
+					}
 
+				}
 			}
 		}
 		what = talent.name;
@@ -1153,6 +1172,19 @@ function swapNiceCheckbox(elem, forceSetting){
 	elem.setAttribute('data-checked', checked);
 }
 
+function formatListCommasAndStuff(list){
+	var output = "";
+	if (!Array.isArray(list)) return list;
+	if (list.length == 1) return list[0];
+	for (var x = 0; x < list.length; x++){
+		output += list[x];
+		if (x == 0 && list.length == 2) output += " and ";
+		else if (x < list.length - 2) output += ", ";
+		else if (x != list.length - 1) output += ", and "; //dat Oxford comma
+	}
+	return output;
+}
+
 function readNiceCheckbox(elem){
 	return (elem.dataset.checked == "true");
 }
@@ -1160,9 +1192,10 @@ function readNiceCheckbox(elem){
 function buildNiceCheckbox(id, extraClass, enabled){
 	var html = (enabled) ? "icomoon icon-checkbox-checked' data-checked='true' " : "icomoon icon-checkbox-unchecked' data-checked='false' ";
 	var defaultClasses = " niceCheckbox noselect";
+	var title = enabled ? "Checked" : "Not Checked";
 	extraClass = (extraClass) ? extraClass + defaultClasses : defaultClasses;
 	html = "class='" + extraClass + " " + html;
-	html = "<span id='" + id + "' " + html + " onclick='swapNiceCheckbox(this)'></span>";
+	html = "<span title='" + title + "' id='" + id + "' " + html + " onclick='swapNiceCheckbox(this)'></span>";
 	return html;	
 }
 
@@ -1959,6 +1992,11 @@ function getBattleStatBd(what) {
 	if (what == "attack" && game.global.mapsActive && game.talents.bionic2.purchased && getCurrentMapObject().level > game.global.world){
 		currentCalc *= 1.5;
 		textString += "<tr><td class='bdTitle'>Bionic Magnet II</td><td>+50%</td><td></td><td>+ 50%</td><td class='bdNumberSm'>" + prettify(currentCalc) + "</td>" + getFluctuation(currentCalc, minFluct, maxFluct) + "</tr>";
+	}
+	if (what == "attack" && game.global.voidBuff && game.talents.voidMastery.purchased){
+		currentCalc *= 5;
+		textString += "<tr><td class='bdTitle'>Mastery of the Void</td><td>+500%</td><td></td><td>+ 500%</td><td class='bdNumberSm'>" + prettify(currentCalc) + "</td>" + getFluctuation(currentCalc, minFluct, maxFluct) + "</tr>";
+
 	}
 	//Pumpkimp buff
 	if (game.global.sugarRush > 0 && what == "attack"){
@@ -2883,6 +2921,7 @@ function resetGame(keepPortal) {
 			heirloomsCarried: game.global.heirloomsCarried,
 			StaffEquipped: game.global.StaffEquipped,
 			ShieldEquipped: game.global.ShieldEquipped,
+			CoreEquipped: game.global.CoreEquipped,
 			nullifium: game.global.nullifium,
 			maxCarriedHeirlooms: game.global.maxCarriedHeirlooms,
 		};
@@ -3250,7 +3289,7 @@ function message(messageString, type, lootIcon, extraClass, extraTag, htmlPrefix
         }
     }
     else messageString = htmlPrefix + " " + messageString;
-    var messageHTML = "<span" + addId + " class='" + type + "Message message" +  " " + extraClass + "' style='display: " + displayType + "'>" + messageString + "</span>";
+    var messageHTML = "<p" + addId + " class='" + type + "Message message" +  " " + extraClass + "' style='display: " + displayType + "'>" + messageString + "</p>";
     pendingLogs.all.push(messageHTML);
     if (type != "Story"){
         var pendingArray = pendingLogs[type];
@@ -3785,6 +3824,10 @@ function drawAllBuildings(){
 }
 
 function drawBuilding(what, where){
+	if (usingScreenReader){
+		where.innerHTML += '<button title="" onmouseover="tooltip(\'' + what + '\',\'buildings\',event)" onmouseout="tooltip(\'hide\')" class="thingColorCanNotAfford thing noselect pointer buildingThing" id="' + what + '" onclick="buyBuilding(\'' + what + '\')"><span class="thingName"><span id="' + what + 'Alert" class="alert badge"></span>' + what + '</span>, <span class="thingOwned" id="' + what + 'Owned">0</span><span class="cantAffordSR">, Not Affordable</span><span class="affordSR">, Can Buy</span></button>';
+		return;
+	}
 	where.innerHTML += '<div onmouseover="tooltip(\'' + what + '\',\'buildings\',event)" onmouseout="tooltip(\'hide\')" class="thingColorCanNotAfford thing noselect pointer buildingThing" id="' + what + '" onclick="buyBuilding(\'' + what + '\')"><span class="thingName"><span id="' + what + 'Alert" class="alert badge"></span>' + what + '</span><br/><span class="thingOwned" id="' + what + 'Owned">0</span></div>';
 }
 
@@ -3814,6 +3857,10 @@ function drawAllJobs(){
 }
 
 function drawJob(what, where){
+	if (usingScreenReader){
+		where.innerHTML += '<button onmouseover="tooltip(\'' + what + '\',\'jobs\',event)" onmouseout="tooltip(\'hide\')" class="thingColorCanNotAfford thing noselect pointer jobThing" id="' + what + '" onclick="buyJob(\'' + what + '\')"><span class="thingName"><span id="' + what + 'Alert" class="alert badge"></span>' + what + '</span>, <span class="thingOwned" id="' + what + 'Owned">0</span><span class="cantAffordSR">, Not Affordable</span><span class="affordSR">, Can Buy</span></button>';
+		return;
+	}
 	where.innerHTML += '<div onmouseover="tooltip(\'' + what + '\',\'jobs\',event)" onmouseout="tooltip(\'hide\')" class="thingColorCanNotAfford thing noselect pointer jobThing" id="' + what + '" onclick="buyJob(\'' + what + '\')"><span class="thingName"><span id="' + what + 'Alert" class="alert badge"></span>' + what + '</span><br/><span class="thingOwned" id="' + what + 'Owned">0</span></div>';
 }
 
@@ -3943,7 +3990,12 @@ function drawUpgrade(what, where){
 	var done = upgrade.done;
 	var dif = upgrade.allowed - done;
 	if (dif >= 1) dif -= 1;
-	where.innerHTML += '<div onmouseover="tooltip(\'' + what + '\',\'upgrades\',event)" onmouseout="tooltip(\'hide\')" class="thingColorCanNotAfford thing noselect pointer upgradeThing" id="' + what + '" onclick="buyUpgrade(\'' + what + '\')"><span id="' + what + 'Alert" class="alert badge"></span><span class="thingName">' + what + '</span><br/><span class="thingOwned" id="' + what + 'Owned">' + done + '</span></div>';
+	if (usingScreenReader){
+		where.innerHTML += '<button onmouseover="tooltip(\'' + what + '\',\'upgrades\',event)" onmouseout="tooltip(\'hide\')" class="thingColorCanNotAfford thing noselect pointer upgradeThing" id="' + what + '" onclick="buyUpgrade(\'' + what + '\')"><span id="' + what + 'Alert" class="alert badge"></span><span class="thingName">' + what + '</span>, <span class="thingOwned" id="' + what + 'Owned">' + done + '</span><span class="cantAffordSR">, Not Affordable</span><span class="affordSR">, Can Buy</span></button>';
+	}
+	else{
+		where.innerHTML += '<div onmouseover="tooltip(\'' + what + '\',\'upgrades\',event)" onmouseout="tooltip(\'hide\')" class="thingColorCanNotAfford thing noselect pointer upgradeThing" id="' + what + '" onclick="buyUpgrade(\'' + what + '\')"><span id="' + what + 'Alert" class="alert badge"></span><span class="thingName">' + what + '</span><br/><span class="thingOwned" id="' + what + 'Owned">' + done + '</span></div>';
+	}
 	if (dif >= 1) document.getElementById(what + "Owned").innerHTML = upgrade.done + "(+" + dif + ")";
 }
 
@@ -4074,6 +4126,10 @@ function drawEquipment(what, elem){
 	var equipment = game.equipment[what];
 	if (equipment.prestige > 1){
 		numeral = romanNumeral(equipment.prestige);
+	}
+	if (usingScreenReader){
+		elem.innerHTML += '<button onmouseover="tooltip(\'' + what + '\',\'equipment\',event)" onmouseout="tooltip(\'hide\')" class="noselect pointer thingColorCanNotAfford thing" id="' + what + '" onclick="buyEquipment(\'' + what + '\')"><span class="thingName">' + what + ' <span id="' + what + 'Numeral">' + numeral + '</span></span>, <span class="thingOwned">Level: <span id="' + what + 'Owned">0</span></span><span class="cantAffordSR">, Not Affordable</span><span class="affordSR">, Can Buy</span></button>';
+		return;
 	}
 	elem.innerHTML += '<div onmouseover="tooltip(\'' + what + '\',\'equipment\',event)" onmouseout="tooltip(\'hide\')" class="noselect pointer thingColorCanNotAfford thing" id="' + what + '" onclick="buyEquipment(\'' + what + '\')"><span class="thingName">' + what + ' <span id="' + what + 'Numeral">' + numeral + '</span></span><br/><span class="thingOwned">Level: <span id="' + what + 'Owned">0</span></span></div>';
 }
@@ -4457,11 +4513,61 @@ function toggleSetting(setting, elem, fromPortal, updateOnly, backwards){
 
 	function displayAchievements(){
 		var htmlString = "";
+		var count = 0;
+		if (usingScreenReader){ 
+			htmlString += "<table class='screenReaderAchievements'><tbody><tr><td>Achievement Tier Values</td>";
+			for (var y = 1; y < game.tierValues.length; y++){
+				htmlString += "<td> Tier " + y + " is worth " + game.tierValues[y] + "% damage</td>";
+			}
+			htmlString += "</tr>";
+		}
 		for (var item in game.achievements) {
+			count++;
 			var achievement = game.achievements[item];
 			if (typeof achievement.display !== 'undefined' && !achievement.display()) continue;
 			var amount = achievement.tiers.length;
 			var one = (typeof achievement.finished !== 'number');
+			var hasProgress = (typeof achievement.progress !== 'undefined' && (typeof achievement.highest === 'undefined' || (achievement.highest > 0 || achievement.finished > 0)));
+			var SRfinished = false;
+			if (usingScreenReader){
+				for (var x = 0; x < amount; x++){
+					var locked = false;
+					if (x == 0 && count != 1) htmlString += "</tr>";
+					if (x == 0){ 
+						htmlString += "<tr><td title='achievementGroup'>" + achievement.title;
+						if (hasProgress && !one && achievement.tiers.length == achievement.finished){
+							htmlString  += "<br/>Row Finished! (" + achievement.progress() + ")";
+							SRfinished = true;
+						}
+						htmlString += "</td>";
+					}
+					if (one && achievement.filters[x] == -1 && !achievement.finished[x]) continue;
+					htmlString += "<td>";
+					if ((!one && achievement.finished == x) || (one && !achievement.finished[x] && game.global.highestLevelCleared >= achievement.filters[x])) {
+						if (item == "humaneRun")
+						htmlString += (achievement.evaluate() == 0) ? "Not complete, failed for this run." : "Not complete";
+						else
+						htmlString += (one && !checkFeatEarnable(achievement.names[x])) ? "Not complete, failed for this run." : "Not complete";
+					}
+					else if ((one && achievement.finished[x]) || (!one && achievement.finished > x)) {
+						htmlString += "Completed"
+					}
+					else{ 
+						htmlString += "Locked";
+						locked = true;
+					}
+					if (!locked) htmlString += "<br/>" + achievement.names[x];
+					htmlString += ", Tier " + achievement.tiers[x];
+					if (!locked){ 
+						if (hasProgress && !SRfinished) {
+							htmlString += "<br/>Progress: " + achievement.progress();
+						}
+						htmlString += "<br/>" + achievement.description(x);
+					}
+					htmlString += "</td>";
+				}
+				continue;
+			}
 			var titleClass = 'class="achievementTitle';
 			if (amount > 48)
 				titleClass += ' quinTall';
@@ -4495,8 +4601,22 @@ function toggleSetting(setting, elem, fromPortal, updateOnly, backwards){
 			}
 			htmlString += '</span><div id="' + item + 'Description" class="achievementDescription")"></div></div>';
 		}
+		if (usingScreenReader) htmlString += "</tr></tbody></table>";
 		document.getElementById("achievementsHere").innerHTML = htmlString;
 		document.getElementById("achievementTotalPercent").innerHTML = game.global.achievementBonus;
+	}
+
+	function getTierValues(){
+		for (var x = 0; x < game.heirlooms.rarities.length; x++){
+			var output = (x == game.heirlooms.rarities.length - 1) ? game.heirlooms.rarityBreakpoints[x - 1] + "+: " : "<" + game.heirlooms.rarityBreakpoints[x] + ": ";
+			var value = 0;
+			for (var y = 0; y < game.heirlooms.rarities[x].length; y++){
+				var rarity = game.heirlooms.rarities[x][y];
+				if (rarity == -1) continue;
+				value += (rarity / 10000) * (game.heirlooms.values[y] / 2);
+			}
+			console.log(output + prettify(value));
+		}
 	}
 
 	var trimpAchievementsOpen = false;
